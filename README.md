@@ -1,4 +1,4 @@
 affogato
 ========
 
-Collection of small, sharp library functions, particularly suited to use with CoffeeScript
+Collection of short, sharp library functions, particularly suited to use with CoffeeScript
