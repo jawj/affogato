@@ -121,6 +121,8 @@ UTF8 =
 
 B64 =
   chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='.split ''
+  nonchars: new RegExp '[^A-Za-z0-9+/=]+', 'g'  # CoffeeScript struggles with a slash in a regex literal
+
   enc: (input, output = '') ->
     chars = B64.chars
     len = input.length
@@ -139,7 +141,8 @@ B64 =
     if padLen is 0 then output 
     else output.substring(0, output.length - padLen) + '=='.substring(0, padLen)
     
-  dec: (input, output = '') ->
+  dec: (input, sanitize = yes, output = '') ->
+    if sanitize then input = input.replace B64.nonchars, ''
     charmap = B64.charmap
     len = input.length
     i = 0
