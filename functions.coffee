@@ -106,29 +106,58 @@ xhr = (opts = {}) ->  # for IE6, and serious cross-browser wrangling, use jQuery
   yes
   
 
-# optimised Base64 encoder
-# slower original: https://github.com/rwz/base64.coffee/blob/master/base64.coffee
-# in Chrome, this string concatenation version is about 33% quicker than an array + join strategy
+# convert string to/from UTF8 (binary/byte) string
+# see: http://ecmanaut.blogspot.co.uk/2006/07/encoding-decoding-utf8-in-javascript.html
+
+UTF8 =
+  enc: (s) -> unescape (encodeURIComponent s)
+  dec: (s) -> decodeURIComponent (escape s)
+
+
+# optimised Base64 encoder/decoder (by removing conditionals from the main loop)
+# slower originals: https://github.com/rwz/base64.coffee/blob/master/base64.coffee
+# in Chrome, the string concatenation version is about 33% quicker than an array + join strategy
 # in Firefox and Safari, array + join strategy (with preallocated array) is 5 - 10%+ quicker
 
-b64 = (input, output = '') ->
-  chars = b64.chars
-  len = input.length
-  padLen = (3 - len % 3) % 3  # equivalent: [0, 2, 1][len % 3]
-  padded = if padLen is 0 then input else input + '\x00\x00'.substring(0, padLen)
-  i = 0
-  while i < len
-    chr1 = padded.charCodeAt(i++) & 255
-    chr2 = padded.charCodeAt(i++) & 255
-    chr3 = padded.charCodeAt(i++) & 255
-    output += chars[chr1 >> 2]
-    output += chars[((chr1 & 3) << 4) | (chr2 >> 4)]
-    output += chars[((chr2 & 15) << 2) | (chr3 >> 6)]
-    output += chars[chr3 & 63]
-  if padLen is 0 then output 
-  else output.substring(0, output.length - padLen) + '=='.substring(0, padLen)
-  
-b64.chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='.split ''
+B64 =
+  chars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/='.split ''
+  enc: (input, output = '') ->
+    chars = B64.chars
+    len = input.length
+    padLen = [0, 2, 1][len % 3]
+    padded = if padLen is 0 then input else input + '\x00\x00'.substring(0, padLen)
+    i = 0
 
+    while i < len
+      chr1 = padded.charCodeAt(i++) & 255
+      chr2 = padded.charCodeAt(i++) & 255
+      chr3 = padded.charCodeAt(i++) & 255
+      output += chars[chr1 >> 2]
+      output += chars[((chr1 & 3) << 4) | (chr2 >> 4)]
+      output += chars[((chr2 & 15) << 2) | (chr3 >> 6)]
+      output += chars[chr3 & 63]
+    if padLen is 0 then output 
+    else output.substring(0, output.length - padLen) + '=='.substring(0, padLen)
+    
+  dec: (input, output = '') ->
+    charmap = B64.charmap
+    len = input.length
+    i = 0
 
+    while i < len
+      enc1 = charmap[input.charAt(i++)]
+      enc2 = charmap[input.charAt(i++)]
+      enc3 = charmap[input.charAt(i++)]
+      enc4 = charmap[input.charAt(i++)]
 
+      chr1 = (enc1 << 2) | (enc2 >> 4)
+      chr2 = ((enc2 & 15) << 4) | (enc3 >> 2)
+      chr3 = ((enc3 & 3) << 6) | enc4
+
+      output += String.fromCharCode chr1, chr2, chr3
+
+    if enc4 isnt 64 then output
+    else output.substring(0, output.length - if enc3 is 64 then 2 else 1)
+
+B64.charmap = {}
+(B64.charmap[char] = i) for char, i in B64.chars
